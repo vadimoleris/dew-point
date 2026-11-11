@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="512" height="512" viewBox="0 0 512 512">
+  <title>Точка росы — лист с каплей росы</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1f6a3e"/>
+      <stop offset="1" stop-color="#0b2b19"/>
+    </linearGradient>
+    <linearGradient id="leaf" gradientUnits="userSpaceOnUse" x1="100" y1="412" x2="412" y2="100">
+      <stop offset="0" stop-color="#2e9b54"/>
+      <stop offset="0.55" stop-color="#46b968"/>
+      <stop offset="1" stop-color="#7fdd9b"/>
+    </linearGradient>
+    <radialGradient id="drop" cx="0.34" cy="0.28" r="0.95">
+      <stop offset="0" stop-color="#ecf9ff"/>
+      <stop offset="0.28" stop-color="#a9def6"/>
+      <stop offset="0.6" stop-color="#4fb0e4"/>
+      <stop offset="1" stop-color="#136ca9"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <g id="bead">
+      <ellipse cx="4" cy="6" rx="84" ry="18" fill="#0a2f18" opacity="0.35"/>
+      <path d="M-80 0C-80 -62 -46 -96 0 -96C46 -96 80 -62 80 0Q0 18 -80 0Z" fill="url(#drop)"/>
+      <path d="M-46 -3Q0 13 46 -3" fill="none" stroke="#cfeeff" stroke-opacity="0.55" stroke-width="7" stroke-linecap="round"/>
+      <ellipse cx="-30" cy="-57" rx="19" ry="11" fill="#ffffff" opacity="0.9" transform="rotate(-24 -30 -57)"/>
+      <circle cx="14" cy="-77" r="5.5" fill="#ffffff" opacity="0.65"/>
+    </g>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#bg)"/>
+  <g transform="translate(256 256) scale(1.12) translate(-256 -256)">
+    <circle cx="280" cy="150" r="200" fill="url(#glow)"/>
+    <path d="M84 428C139 253 253 139 428 84C373 259 259 373 84 428Z"
+          fill="url(#leaf)" stroke="#0d3a22" stroke-opacity="0.25" stroke-width="3"/>
+    <path d="M104 408 408 104" fill="none" stroke="#eaf9ef" stroke-opacity="0.5" stroke-width="9" stroke-linecap="round"/>
+    <g fill="none" stroke="#eaf9ef" stroke-opacity="0.28" stroke-width="6" stroke-linecap="round">
+      <path d="M196 316Q174 296 158 272"/>
+      <path d="M282 230Q262 212 246 190"/>
+      <path d="M240 272Q262 292 282 314"/>
+    </g>
+    <use href="#bead" xlink:href="#bead" transform="translate(270 167) rotate(-36)"/>
+    <use href="#bead" xlink:href="#bead" transform="translate(152 288) rotate(-57) scale(0.34)"/>
+  </g>
+</svg>

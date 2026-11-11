@@ -1,5 +1,5 @@
 /* Точка росы — сервис-воркер. При изменении кода подними VERSION. */
-const VERSION = '1.0.0';
+const VERSION = '1.0.1';
 const CACHE = 'dewpoint-v' + VERSION;
 const CORE = [
   './',
@@ -17,6 +17,7 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
+      /* Удаляем ТОЛЬКО свои кэши — на общем origin живут кэши соседних PWA */
       .then(keys => Promise.all(
         keys.filter(k => k.startsWith('dewpoint-') && k !== CACHE).map(k => caches.delete(k))
       ))
@@ -28,34 +29,44 @@ self.addEventListener('message', e => {
   if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
+/* Страница и манифест: сеть → кэш. Идентичность приложения не должна залежаться. */
+async function networkFirst(e, req) {
+  const cache = await caches.open(CACHE);
+  const isNav = req.mode === 'navigate';
+  try {
+    const res = await fetch(req);
+    if (res && res.ok) {
+      e.waitUntil(cache.put(isNav ? './index.html' : req, res.clone()).catch(() => {}));
+    }
+    return res;
+  } catch (_) {
+    if (isNav) {
+      return (await cache.match('./index.html')) || (await cache.match('./')) || Response.error();
+    }
+    return (await cache.match(req)) || Response.error();
+  }
+}
+
+/* Остальное: мгновенно из кэша + фоновое обновление. */
+async function staleWhileRevalidate(e, req) {
+  const cache = await caches.open(CACHE);
+  const hit = await cache.match(req);
+  const refresh = fetch(req)
+    .then(res => {
+      if (res && res.ok) e.waitUntil(cache.put(req, res.clone()).catch(() => {}));
+      return res;
+    })
+    .catch(() => null);
+  if (hit) { e.waitUntil(refresh); return hit; }
+  return (await refresh) || Response.error();
+}
+
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  /* Страница: сначала сеть (свежие обновления), офлайн — кэш */
-  if (req.mode === 'navigate') {
-    e.respondWith(
-      fetch(req).then(res => {
-        if (res.ok) {
-          const copy = res.clone();
-          caches.open(CACHE).then(c => c.put('./index.html', copy));
-        }
-        return res;
-      }).catch(() => caches.match('./index.html').then(hit => hit || caches.match('./')))
-    );
-    return;
-  }
-
-  /* Остальное: кэш → сеть (PNG-иконки докэшируются после генерации) */
-  e.respondWith(
-    caches.match(req).then(hit => hit || fetch(req).then(res => {
-      if (res.ok) {
-        const copy = res.clone();
-        caches.open(CACHE).then(c => c.put(req, copy));
-      }
-      return res;
-    }))
-  );
+  const critical = req.mode === 'navigate' || url.pathname.endsWith('/manifest.webmanifest');
+  e.respondWith(critical ? networkFirst(e, req) : staleWhileRevalidate(e, req));
 });

@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Генератор иконок · Точка росы</title>
+<link rel="icon" type="image/svg+xml" href="./icon.svg">
+<style>
+:root{
+  --bg:#f2f5f0;--surface:#fff;--ink:#1f2b23;--muted:#61705f;--line:#dfe7db;
+  --green:#2c8a52;--green-ink:#1e6b3d;--green-soft:#e4f2e8;--on-accent:#fff;
+  --shadow:0 1px 2px rgba(23,42,30,.05),0 10px 30px rgba(23,42,30,.07);
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0e1512;--surface:#151f19;--ink:#e7efe8;--muted:#92a595;--line:#27372d;
+    --green:#43b573;--green-ink:#7fd6a3;--green-soft:#16301f;--on-accent:#07130c;
+    --shadow:0 1px 2px rgba(0,0,0,.45),0 12px 32px rgba(0,0,0,.35);}
+}
+*{box-sizing:border-box;margin:0}
+[hidden]{display:none!important}
+html{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+::-webkit-scrollbar{width:8px}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  background:var(--bg);color:var(--ink);min-height:100vh;padding:20px 16px 40px}
+.wrap{max-width:720px;margin:0 auto}
+a{color:var(--green-ink)}
+.back{font-size:13px;font-weight:600;text-decoration:none}
+h1{font-size:21px;margin:12px 0 6px}
+p.lead{font-size:14px;color:var(--muted);line-height:1.5;margin-bottom:14px}
+#status{font-size:13.5px;font-weight:600;color:var(--green-ink);background:var(--green-soft);
+  border-radius:12px;padding:10px 14px;margin-bottom:16px;line-height:1.45}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;
+  box-shadow:var(--shadow);display:flex;flex-direction:column;gap:10px}
+.row{display:flex;gap:12px;align-items:center}
+.preview{position:relative;flex:none;width:96px;height:96px}
+.preview canvas{width:96px;height:96px;display:block;border-radius:20px}
+.preview.maskable canvas{border-radius:0}
+.preview.maskable::after{content:"";position:absolute;inset:10%;border:2px dashed rgba(255,255,255,.75);
+  border-radius:50%;pointer-events:none}
+.name{font-size:13.5px;font-weight:700;word-break:break-all}
+.meta{font-size:12px;color:var(--muted);line-height:1.4;margin-top:3px}
+button{font:inherit;cursor:pointer;touch-action:manipulation}
+.dl{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;
+  padding:9px 12px;font-size:13px;font-weight:600}
+.dl:disabled{opacity:.45;cursor:default}
+.dl:not(:disabled):active{transform:scale(.97)}
+.all{border:none;background:var(--green);color:var(--on-accent);border-radius:12px;
+  padding:12px 18px;font-size:14px;font-weight:700;margin:16px 0 10px}
+.all:disabled{opacity:.45;cursor:default}
+.note{font-size:12.5px;color:var(--muted);line-height:1.5}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.95em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="./index.html">← к калькулятору</a>
+  <h1>PNG-иконки из SVG</h1>
+  <p class="lead">Рендерит <code>icon.svg</code> и <code>icon-maskable.svg</code> в нужные размеры прямо в браузере, без внешних сервисов. Скачай файлы и положи их в корень репозитория рядом с <code>index.html</code>.</p>
+  <div id="status" role="status">Загружаю SVG…</div>
+  <div class="grid" id="grid"></div>
+  <button class="all" id="all" type="button" disabled>Скачать все четыре</button>
+  <p class="note">Если браузер спросит разрешение на несколько файлов — разреши, либо качай по одному. Пунктирный круг на маскабельных превью — безопасная зона 80 %. Исходники: <a href="./icon.svg" download>icon.svg</a> · <a href="./icon-maskable.svg" download>icon-maskable.svg</a>.</p>
+</div>
+<script>
+(function(){
+'use strict';
+var ITEMS=[
+  {file:'icon-192.png',        src:'icon.svg',          size:192, maskable:false, note:'для манифеста'},
+  {file:'icon-512.png',        src:'icon.svg',          size:512, maskable:false, note:'для манифеста и сплэш-экрана'},
+  {file:'icon-maskable-512.png',src:'icon-maskable.svg', size:512, maskable:true,  note:'Android, адаптивная маска'},
+  {file:'icon-180.png',        src:'icon-maskable.svg', size:180, maskable:true,  note:'iPhone/iPad, apple-touch-icon'}
+];
+var cache={}, done=0, failed=0;
+var statusEl=document.getElementById('status'), grid=document.getElementById('grid'), allBtn=document.getElementById('all');
+
+function loadSvg(src){
+  if(!cache[src]){
+    cache[src]=fetch(src).then(function(r){
+      if(!r.ok)throw new Error(src+' → HTTP '+r.status);
+      return r.text();
+    }).then(function(txt){
+      return new Promise(function(res,rej){
+        var url=URL.createObjectURL(new Blob([txt],{type:'image/svg+xml'}));
+        var img=new Image();
+        img.onload=function(){res({img:img,url:url});};
+        img.onerror=function(){URL.revokeObjectURL(url);rej(new Error('Не удалось декодировать '+src));};
+        img.src=url;
+      });
+    });
+  }
+  return cache[src];
+}
+function updateStatus(){
+  if(failed>0){
+    statusEl.textContent=location.protocol==='file:'
+      ? 'С file:// браузер не даёт читать SVG. Открой страницу через сервер: python3 -m http.server 8080 → http://localhost:8080/icons.html (или используй версию на GitHub Pages).'
+      : 'Часть SVG не загрузилась — проверь, что icon.svg и icon-maskable.svg лежат рядом с этой страницей.';
+  }else if(done===ITEMS.length){
+    statusEl.textContent='Готово: '+ITEMS.length+' иконки. Скачивай и клади в корень репозитория рядом с index.html.';
+    allBtn.disabled=false;
+  }
+}
+function download(it){
+  if(!it.canvas)return;
+  it.canvas.toBlob(function(blob){
+    if(!blob)return;
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=it.file;
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(function(){URL.revokeObjectURL(a.href);},4000);
+  },'image/png');
+}
+ITEMS.forEach(function(it){
+  var tile=document.createElement('div');tile.className='tile';
+  var row=document.createElement('div');row.className='row';
+  var prev=document.createElement('div');prev.className='preview'+(it.maskable?' maskable':'');
+  var canvas=document.createElement('canvas');canvas.width=it.size;canvas.height=it.size;
+  prev.appendChild(canvas);
+  var info=document.createElement('div');
+  var name=document.createElement('div');name.className='name';name.textContent=it.file;
+  var meta=document.createElement('div');meta.className='meta';meta.textContent=it.size+'×'+it.size+' px · '+it.note;
+  info.appendChild(name);info.appendChild(meta);
+  row.appendChild(prev);row.appendChild(info);
+  var btn=document.createElement('button');btn.className='dl';btn.type='button';btn.textContent='Скачать PNG';btn.disabled=true;
+  btn.addEventListener('click',function(){download(it);});
+  tile.appendChild(row);tile.appendChild(btn);grid.appendChild(tile);
+
+  loadSvg(it.src).then(function(r){
+    var ctx=canvas.getContext('2d');
+    ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+    ctx.drawImage(r.img,0,0,it.size,it.size);
+    URL.revokeObjectURL(r.url);
+    it.canvas=canvas;btn.disabled=false;done++;updateStatus();
+  }).catch(function(){
+    btn.textContent='Ошибка загрузки';failed++;updateStatus();
+  });
+});
+allBtn.addEventListener('click',function(){
+  ITEMS.forEach(function(it,i){setTimeout(function(){download(it);},i*400);});
+});
+})();
+</script>
+</body>
+</html>
